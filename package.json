@@ -11,7 +11,10 @@
   "dependencies": {
     "react-dom": "^19.2.0",
     "@google/genai": "^1.25.0",
-    "react": "^19.2.0"
+    "react": "^19.2.0",
+    "framer-motion": "^11.3.11",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Prompt, JournalEntry } from '../types';
-import { analyzeEntry } from '../services/geminiService';
+// FIX: The 'analyzeEntry' export was not found. Replaced with 'performFullEntryAnalysis'.
+import { performFullEntryAnalysis, generateSpeech } from '../services/geminiService';
+import { decode, decodeAudioData } from '../utils/audio';
 
 interface JournalViewProps {
   prompt: Prompt;
@@ -9,10 +11,20 @@ interface JournalViewProps {
   queuePosition?: { current: number; total: number };
 }
 
+const SpeakerIcon = ({ className = '' }: { className?: string }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+    </svg>
+);
+
+
 const JournalView: React.FC<JournalViewProps> = ({ prompt, onSave, onExit, queuePosition }) => {
   const [text, setText] = useState('');
   const [isSharing, setIsSharing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const audioContextRef = React.useRef<AudioContext | null>(null);
+
 
   // Reset text when prompt changes in a queue
   useEffect(() => {
@@ -20,21 +32,51 @@ const JournalView: React.FC<JournalViewProps> = ({ prompt, onSave, onExit, queue
     setIsLoading(false);
   }, [prompt]);
 
+  const handlePlayPrompt = async () => {
+    if (isSpeaking) return;
+    setIsSpeaking(true);
+    try {
+      const base64Audio = await generateSpeech(prompt.text);
+      if (base64Audio) {
+        if (!audioContextRef.current) {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        }
+        const ctx = audioContextRef.current;
+        const decodedBytes = decode(base64Audio);
+        const audioBuffer = await decodeAudioData(decodedBytes, ctx, 24000, 1);
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(ctx.destination);
+        source.start();
+        source.onended = () => setIsSpeaking(false);
+      } else {
+        setIsSpeaking(false);
+      }
+    } catch (error) {
+      console.error("Failed to play audio prompt:", error);
+      setIsSpeaking(false);
+    }
+  };
+
+
   const handleSave = async () => {
     if (text.trim() === '') return;
     setIsLoading(true);
 
     try {
-      const analysis = await analyzeEntry(text);
+      // FIX: Changed analyzeEntry to performFullEntryAnalysis and added highlightedPhrases to the new entry.
+      const analysis = await performFullEntryAnalysis(text);
       const newEntry: JournalEntry = {
         id: new Date().toISOString(),
         promptId: prompt.id,
         promptText: prompt.text,
+        promptCategory: prompt.category,
         text,
         emotion: analysis.emotion,
         themes: analysis.themes,
         isShared: isSharing,
         timestamp: Date.now(),
+        highlightedPhrases: analysis.phrases,
       };
       onSave(newEntry);
     } catch (error) {
@@ -43,11 +85,13 @@ const JournalView: React.FC<JournalViewProps> = ({ prompt, onSave, onExit, queue
         id: new Date().toISOString(),
         promptId: prompt.id,
         promptText: prompt.text,
+        promptCategory: prompt.category,
         text,
         emotion: 'Unknown',
         themes: [],
         isShared: isSharing,
         timestamp: Date.now(),
+        highlightedPhrases: [],
       };
       onSave(fallbackEntry);
     } 
@@ -67,8 +111,16 @@ const JournalView: React.FC<JournalViewProps> = ({ prompt, onSave, onExit, queue
             ) : <div />}
             <button onClick={onExit} className="text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
         </header>
-      <div className="text-center">
+      <div className="text-center flex items-center justify-center gap-4">
         <p className="font-lora text-2xl text-green-200">{prompt.text}</p>
+        <button 
+            onClick={handlePlayPrompt} 
+            disabled={isSpeaking}
+            className="text-green-300 hover:text-green-100 disabled:text-gray-500 transition-colors"
+            aria-label="Read prompt aloud"
+        >
+            <SpeakerIcon className={`w-6 h-6 ${isSpeaking ? 'animate-pulse' : ''}`} />
+        </button>
       </div>
       <textarea
         value={text}

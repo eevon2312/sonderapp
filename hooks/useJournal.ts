@@ -1,6 +1,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { JournalEntry } from '../types';
+import { MOCK_ENTRIES } from '../data/mockEntries';
 
 const STORAGE_KEY = 'sonder_journal_entries';
 
@@ -12,6 +13,10 @@ export const useJournal = () => {
       const storedEntries = localStorage.getItem(STORAGE_KEY);
       if (storedEntries) {
         setEntries(JSON.parse(storedEntries));
+      } else {
+        // If no entries are found, populate with mock data
+        setEntries(MOCK_ENTRIES);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_ENTRIES));
       }
     } catch (error) {
       console.error("Failed to load entries from localStorage", error);

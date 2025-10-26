@@ -1,0 +1,17 @@
+{
+  "onboarding": {
+    "welcome": "You're not alone.",
+    "welcome_subtitle": "Welcome to Sonder, a quiet space to explore your thoughts and see how others feel, too.",
+    "privacy_title": "Your privacy comes first.",
+    "privacy_subtitle": "Everything you write is private by default. Sharing with the community is always your choice, and always anonymous."
+  },
+  "community": {
+    "title": "Sonder Tribe",
+    "subtitle": "Quiet reflections shared by others. Read softly."
+  },
+  "share_modal": {
+    "title": "Add this to the Tribe — anonymous and safe.",
+    "bullet1": "Your name won’t appear.",
+    "bullet2": "You can add a short title if you’d like."
+  }
+}

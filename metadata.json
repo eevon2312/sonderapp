@@ -1,5 +1,7 @@
 {
   "name": "Sonder",
   "description": "A mobile journaling app that helps users explore emotions through deep prompts and visualize collective empathy in a shared mindmap. It transforms private reflection into a sense of belonging.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }

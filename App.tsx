@@ -11,8 +11,9 @@ import SonderBotButton from './components/SonderBotButton';
 import { ALL_PROMPTS, PROMPT_PACKS } from './constants';
 import { useJournal } from './hooks/useJournal';
 import { performFullEntryAnalysis, suggestPromptPacks } from './services/geminiService';
+import VoiceMemoDemo from './components/VoiceMemoDemo';
 
-type View = 'onboarding' | 'home' | 'sonder_tribe' | 'sonder_notes' | 'prompt_library' | 'session_complete' | 'chat';
+type View = 'onboarding' | 'home' | 'sonder_tribe' | 'sonder_notes' | 'prompt_library' | 'session_complete' | 'chat' | 'voice_demo';
 type ChatMode = 'chat' | 'listening' | 'start_reflecting';
 
 type SuggestedPack = { title: string; description: string; reason: string; };
@@ -107,6 +108,10 @@ const App: React.FC = () => {
     setView('chat');
   };
 
+  const handleStartVoiceMemo = () => {
+    setView('voice_demo');
+  };
+
 
   const handleSaveChatEntry = async (entryData: Omit<JournalEntry, 'id' | 'timestamp'>) => {
     try {
@@ -157,6 +162,8 @@ const App: React.FC = () => {
         return <PromptLibrary onNavigate={setView} onSelectPrompt={handleStartJournaling} onSelectPack={handleStartJournaling} />;
       case 'session_complete':
         return <SessionComplete onNavigate={setView} onStartNewSession={handleStartJournaling} suggestedPacks={suggestedPacks} isLoading={isLoadingSuggestions} />;
+      case 'voice_demo':
+        return <VoiceMemoDemo onExit={() => setView('home')} onSave={addEntry} />;
       case 'chat':
         return (
             <ChatView 
@@ -173,11 +180,11 @@ const App: React.FC = () => {
         );
       case 'home':
       default:
-        return <Home onNavigate={setView} onStartJournaling={handleStartJournaling} onStartListening={handleStartListening} onStartReflecting={handleStartReflecting} todayPrompt={todayPrompt} userName={userName} />;
+        return <Home onNavigate={setView} onStartJournaling={handleStartJournaling} onStartListening={handleStartListening} onStartReflecting={handleStartReflecting} onStartVoiceMemo={handleStartVoiceMemo} todayPrompt={todayPrompt} userName={userName} />;
     }
   };
 
-  const showSonderBotButton = isOnboardingComplete && view !== 'chat' && view !== 'onboarding';
+  const showSonderBotButton = isOnboardingComplete && view !== 'chat' && view !== 'onboarding' && view !== 'voice_demo';
 
   return (
     <div className="bg-[#1a201d] min-h-screen w-full flex items-center justify-center p-4 text-[#e0e0e0] font-sans antialiased">

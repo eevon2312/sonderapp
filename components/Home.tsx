@@ -8,6 +8,7 @@ interface HomeProps {
   onStartJournaling: (prompt: Prompt) => void;
   onStartListening: () => void;
   onStartReflecting: () => void;
+  onStartVoiceMemo: () => void;
   todayPrompt: Prompt;
   userName: string;
 }
@@ -24,7 +25,7 @@ const ActionCard = ({ emoji, title, description, onClick }: { emoji: string; tit
 );
 
 
-const Home: React.FC<HomeProps> = ({ onNavigate, onStartJournaling, onStartListening, onStartReflecting, todayPrompt, userName }) => {
+const Home: React.FC<HomeProps> = ({ onNavigate, onStartJournaling, onStartListening, onStartReflecting, onStartVoiceMemo, todayPrompt, userName }) => {
   const date = new Date();
   const formattedDate = date.toLocaleDateString('en-US', {
     day: 'numeric',
@@ -66,7 +67,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onStartJournaling, onStartListe
             />
         </div>
         
-        <div className="w-full max-w-3xl grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
             <ActionCard 
                 emoji="🤔"
                 title="Start Reflecting"
@@ -78,6 +79,12 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onStartJournaling, onStartListe
                 title="Just Listen"
                 description="A quiet space to be heard without judgment."
                 onClick={onStartListening}
+            />
+            <ActionCard 
+                emoji="🎙️"
+                title="Voice Memo"
+                description="Record your thoughts out loud and watch them transform."
+                onClick={onStartVoiceMemo}
             />
             <ActionCard 
                 emoji="📚"

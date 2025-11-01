@@ -17,7 +17,7 @@ const SonderBotButton: React.FC<SonderBotButtonProps> = ({ onClick }) => {
     return (
         <button
             onClick={onClick}
-            className="fixed bottom-10 right-10 bg-green-400/90 text-gray-900 rounded-full h-16 w-16 flex items-center justify-center shadow-lg hover:bg-green-300 transition-all transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#2a332d] focus:ring-green-400 animate-fade-in"
+            className="fixed bottom-6 right-6 sm:bottom-10 sm:right-10 bg-green-400/90 text-gray-900 rounded-full h-16 w-16 flex items-center justify-center shadow-lg hover:bg-green-300 transition-all transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#2a332d] focus:ring-green-400 animate-fade-in"
             aria-label="Open SonderBot chat"
         >
             <SonderBotIcon className="w-8 h-8" />

@@ -3,7 +3,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { JournalEntry } from '../types';
 
-interface SonderNotesProps {
+interface EntriesProps {
   entries: JournalEntry[];
   onNavigate: (view: 'home') => void;
 }
@@ -33,7 +33,7 @@ const EntryCard: React.FC<{ entry: JournalEntry }> = ({ entry }) => (
     </div>
 );
 
-const SonderNotes: React.FC<SonderNotesProps> = ({ entries, onNavigate }) => {
+const Entries: React.FC<EntriesProps> = ({ entries, onNavigate }) => {
     const mainContentRef = useRef<HTMLDivElement>(null);
     const [selectedEmotion, setSelectedEmotion] = useState<string | null>(null);
 
@@ -104,15 +104,15 @@ const SonderNotes: React.FC<SonderNotesProps> = ({ entries, onNavigate }) => {
     
   return (
     <div className="bg-[#0E1713] text-[#E8F5E9] h-full flex flex-col -m-6 animate-fade-in">
-        <header className="flex justify-between items-center mb-0 p-6 border-b border-[#2B3C34] flex-shrink-0">
+        <header className="flex justify-between items-center mb-0 p-4 sm:p-6 border-b border-[#2B3C34] flex-shrink-0">
             <div>
-                <h1 className="text-2xl font-bold text-green-200">Sonder Notes</h1>
+                <h1 className="text-2xl font-bold text-green-200">Entries</h1>
                 <p className="text-[#A8BFA8]">Your collected reflections.</p>
             </div>
             <button onClick={() => onNavigate('home')} className="px-4 py-2 text-sm bg-white/10 rounded-lg hover:bg-white/20 transition-colors">Home</button>
         </header>
 
-        <div className="p-6 border-b border-[#2B3C34] flex-shrink-0">
+        <div className="p-4 sm:p-6 border-b border-[#2B3C34] flex-shrink-0">
             <h2 className="text-sm font-semibold text-[#A8BFA8] mb-3">Emotion Cloud</h2>
             <div className="flex flex-wrap gap-x-4 gap-y-2 items-center">
                 <button
@@ -147,7 +147,7 @@ const SonderNotes: React.FC<SonderNotesProps> = ({ entries, onNavigate }) => {
 
         <div className="flex flex-grow overflow-hidden">
             {/* Sidebar Calendar */}
-            <aside className="w-48 flex-shrink-0 overflow-y-auto p-6 border-r border-[#2B3C34] hidden sm:block">
+            <aside className="w-48 flex-shrink-0 overflow-y-auto p-4 sm:p-6 border-r border-[#2B3C34] hidden sm:block">
                 <div className="space-y-6">
                     {Object.entries(groupedByMonth).map(([monthYear, days]) => (
                         <div key={monthYear}>
@@ -176,7 +176,7 @@ const SonderNotes: React.FC<SonderNotesProps> = ({ entries, onNavigate }) => {
             </aside>
 
             {/* Main Content */}
-            <main ref={mainContentRef} className="flex-grow overflow-y-auto p-6">
+            <main ref={mainContentRef} className="flex-grow overflow-y-auto p-4 sm:p-6">
                  {sortedEntries.length === 0 ? (
                     <div className="text-center text-gray-400 h-full flex items-center justify-center flex-col">
                         <p className="text-lg">
@@ -209,4 +209,4 @@ const SonderNotes: React.FC<SonderNotesProps> = ({ entries, onNavigate }) => {
   );
 };
 
-export default SonderNotes;
+export default Entries;

@@ -1,9 +1,9 @@
-
 import React, { useState } from 'react';
 import { Prompt } from '../types';
 
 interface OnboardingProps {
   onComplete: (name: string, result: { type: 'predefined'; prompt: Prompt } | { type: 'custom'; text: string }) => void;
+  userName: string;
 }
 
 const predefinedReasons = [
@@ -34,9 +34,8 @@ const predefinedReasons = [
     }
 ];
 
-const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
+const Onboarding: React.FC<OnboardingProps> = ({ onComplete, userName }) => {
   const [step, setStep] = useState(1);
-  const [name, setName] = useState('');
   const [emotionText, setEmotionText] = useState('');
   const [customReasonText, setCustomReasonText] = useState('');
   const [isWritingCustomReason, setIsWritingCustomReason] = useState(false);
@@ -47,7 +46,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       text: reason.promptText,
       category: reason.pack,
     };
-    onComplete(name, { type: 'predefined', prompt });
+    onComplete(userName, { type: 'predefined', prompt });
   };
 
   const handleStartCustomReason = () => {
@@ -56,7 +55,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
   const handleCustomReasonSubmit = () => {
     if (customReasonText.trim() === '') return;
-    setStep(5);
+    setStep(4); // was 5
   };
 
   const renderStep = () => {
@@ -64,7 +63,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       case 1:
         return (
           <div className="text-center flex flex-col items-center justify-center h-full animate-fade-in">
-            <h1 className="text-5xl font-lora text-green-200 mb-4">You're not alone.</h1>
+            <h1 className="text-4xl sm:text-5xl font-lora text-green-200 mb-4">You're not alone.</h1>
             <p className="text-lg text-gray-300 max-w-md mb-8">Welcome to Sonder, a quiet space to explore your thoughts and see how others feel, too.</p>
             <button
               onClick={() => setStep(2)}
@@ -77,7 +76,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       case 2:
         return (
           <div className="text-center flex flex-col items-center justify-center h-full animate-fade-in">
-            <h2 className="text-4xl font-lora text-green-200 mb-4">Your privacy comes first.</h2>
+            <h2 className="text-3xl sm:text-4xl font-lora text-green-200 mb-4">Your privacy comes first.</h2>
             <p className="text-lg text-gray-300 max-w-md mb-8">Everything you write is private by default. Sharing with the community is always your choice, and always anonymous.</p>
             <button
               onClick={() => setStep(3)}
@@ -87,34 +86,12 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
             </button>
           </div>
         );
-      case 3:
-        return (
-          <div className="text-center flex flex-col items-center justify-center h-full animate-fade-in">
-            <h2 className="text-4xl font-lora text-green-200 mb-4">What should we call you?</h2>
-            <p className="text-lg text-gray-300 max-w-md mb-8">This is just for a more personal touch. It's never shared.</p>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your first name"
-              className="w-full max-w-xs bg-[#222a26] rounded-lg p-4 text-lg text-center text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-400/50 mb-8"
-              autoFocus
-            />
-            <button
-              onClick={() => setStep(4)}
-              disabled={name.trim() === ''}
-              className="px-8 py-3 bg-green-400/20 text-green-200 rounded-lg hover:bg-green-400/30 transition-colors disabled:bg-gray-600/20 disabled:text-gray-400 disabled:cursor-not-allowed"
-            >
-              Continue
-            </button>
-          </div>
-        );
-      case 4:
+      case 3: // was 4
         return (
             <div className="text-center flex flex-col items-center justify-center h-full animate-fade-in">
             {!isWritingCustomReason ? (
               <>
-                <h2 className="text-4xl font-lora text-green-200 mb-2">Hi {name},</h2>
+                <h2 className="text-3xl sm:text-4xl font-lora text-green-200 mb-2">Hi {userName},</h2>
                 <p className="text-lg text-gray-300 max-w-md mb-8">What brings you here today?</p>
                 <div className="flex flex-col gap-3 w-full max-w-sm">
                   {predefinedReasons.map(r => (
@@ -125,7 +102,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               </>
             ) : (
               <>
-                <h2 className="text-4xl font-lora text-green-200 mb-2">That's okay.</h2>
+                <h2 className="text-3xl sm:text-4xl font-lora text-green-200 mb-2">That's okay.</h2>
                 <p className="text-lg text-gray-300 max-w-md mb-8">Feel free to share what's on your mind.</p>
                 <textarea
                   value={customReasonText}
@@ -145,10 +122,10 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
             )}
           </div>
         );
-      case 5: // This step is now only for the custom reason path
+      case 4: // was 5
         return (
           <div className="text-center flex flex-col items-center justify-center h-full animate-fade-in">
-            <h2 className="text-4xl font-lora text-green-200 mb-4">First, how are you feeling?</h2>
+            <h2 className="text-3xl sm:text-4xl font-lora text-green-200 mb-4">First, how are you feeling?</h2>
             <p className="text-lg text-gray-300 max-w-md mb-8">Take a moment to check in with yourself. This is just for you.</p>
             <textarea
               value={emotionText}
@@ -158,7 +135,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               autoFocus
             />
             <button
-              onClick={() => onComplete(name, { type: 'custom', text: emotionText })}
+              onClick={() => onComplete(userName, { type: 'custom', text: emotionText })}
               disabled={emotionText.trim() === ''}
               className="px-8 py-3 bg-green-400/20 text-green-200 rounded-lg hover:bg-green-400/30 transition-colors disabled:bg-gray-600/20 disabled:text-gray-400 disabled:cursor-not-allowed"
             >

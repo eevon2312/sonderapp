@@ -52,9 +52,9 @@ const ReflectionCard: React.FC<{ entry: JournalEntry }> = ({ entry }) => (
 // View for displaying the feed of reflections within a specific cluster
 const ClusterFeed = ({ clusterName, entries, onBack }: { clusterName: ClusterName, entries: JournalEntry[], onBack: () => void }) => (
     <div className="h-full flex flex-col animate-fade-in">
-        <header className="flex justify-between items-center mb-6 flex-shrink-0">
+        <header className="w-full flex flex-col items-start gap-4 sm:flex-row sm:justify-between sm:items-center mb-6 flex-shrink-0">
             <div>
-                <h1 className="text-3xl font-lora text-green-100">{clusterName} Tribe</h1>
+                <h1 className="text-3xl font-lora text-green-100">{clusterName}</h1>
                 <p className="text-gray-400 mt-1">{`${entries.length} reflections shared here. You’re part of this tribe.`}</p>
             </div>
             <button onClick={onBack} className="px-4 py-2 text-sm bg-white/10 rounded-lg hover:bg-white/20 transition-colors">← Back to Tribes</button>
@@ -68,7 +68,7 @@ const ClusterFeed = ({ clusterName, entries, onBack }: { clusterName: ClusterNam
 );
 
 // Main SonderTribe component that manages views
-const SonderTribe: React.FC<{ entries: JournalEntry[]; onNavigate: (view: 'home') => void; }> = ({ entries, onNavigate }) => {
+const Tribe: React.FC<{ entries: JournalEntry[]; onNavigate: (view: 'home') => void; }> = ({ entries, onNavigate }) => {
     const [selectedCluster, setSelectedCluster] = useState<ClusterName | null>(null);
 
     const tribeData = useMemo(() => {
@@ -96,9 +96,9 @@ const SonderTribe: React.FC<{ entries: JournalEntry[]; onNavigate: (view: 'home'
     // Render the main grid of emotion orbs
     return (
         <div className="h-full flex flex-col animate-fade-in">
-            <header className="flex justify-between items-center mb-8 flex-shrink-0">
+            <header className="w-full flex flex-col items-start gap-4 sm:flex-row sm:justify-between sm:items-center mb-8 flex-shrink-0">
                 <div>
-                    <h1 className="text-3xl font-lora text-green-100">Sonder Tribe</h1>
+                    <h1 className="text-3xl font-lora text-green-100">Tribe</h1>
                     <div className="h-6 mt-1">
                       <Typewriter
                         text={[
@@ -154,4 +154,4 @@ const SonderTribe: React.FC<{ entries: JournalEntry[]; onNavigate: (view: 'home'
     );
 };
 
-export default SonderTribe;
+export default Tribe;

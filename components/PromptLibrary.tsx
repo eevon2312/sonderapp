@@ -16,9 +16,17 @@ const PromptLibrary: React.FC<PromptLibraryProps> = ({ onNavigate, onSelectPromp
     
     return (
         <div className="h-full flex flex-col animate-fade-in">
-            <header className="text-center mb-8">
-                <h1 className="text-4xl font-lora text-green-100 mb-2">How would you like to reflect?</h1>
-                <p className="text-gray-400">Choose a starting point, or just write freely.</p>
+            <header className="w-full flex flex-col items-start text-left sm:flex-row sm:justify-between sm:items-center mb-8">
+                <div className="mb-4 sm:mb-0">
+                    <h1 className="text-3xl sm:text-4xl font-lora text-green-100 mb-2">Explore Prompts</h1>
+                    <p className="text-gray-400">Choose a starting point for your reflection.</p>
+                </div>
+                <button 
+                    onClick={() => onNavigate('home')} 
+                    className="px-4 py-2 text-sm bg-white/10 rounded-lg hover:bg-white/20 transition-colors flex-shrink-0"
+                >
+                    Home
+                </button>
             </header>
 
             <main className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl">

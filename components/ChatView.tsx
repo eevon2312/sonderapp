@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { FullAnalysisResult, performFullEntryAnalysis, generateListeningResponse } from '../services/geminiService';
 import { useLiveConversation } from '../hooks/useLiveConversation';
@@ -28,6 +27,14 @@ const GENTLE_ENCOURAGEMENT = [
     "Take your time — this space is yours.",
     "No need to rush or be perfect.",
     "Write what comes to mind...",
+];
+
+const GENTLE_TRANSITIONS = [
+    "Thank you for sharing that. When you're ready, here's the next thought.",
+    "That's a powerful reflection. Let's gently move to this next one.",
+    "I see. Let this next question guide you when you're ready.",
+    "Take a breath. Here is the next thought for you.",
+    "That makes sense. Let's explore this idea next.",
 ];
 
 const POST_REFLECTION_VALIDATION = [
@@ -70,7 +77,7 @@ interface ChatViewProps {
   prompts?: Prompt[];
   onSave?: (entryData: Omit<JournalEntry, 'id' | 'timestamp'>) => Promise<void>;
   onNavigate: (view: 'sonder_tribe' | 'prompt_library' | 'home') => void;
-  onSessionComplete: (lastEntryText: string) => void;
+  onSessionComplete: (lastEntryText: string, options?: { showSuggestions?: boolean }) => void;
   initialMode?: 'chat' | 'listening' | 'start_reflecting';
   initialMessage?: string;
 }
@@ -188,7 +195,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ onCancel, onShare, entryText })
 };
 
 const ActionButtons: React.FC<{ buttons: ActionButtonProps[]; onButtonClick: (action: string, payload?: any) => void }> = React.memo(({ buttons, onButtonClick }) => (
-    <div className="grid grid-cols-2 gap-3 my-2 animate-fade-in max-w-md mx-auto">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 my-2 animate-fade-in">
         {buttons.map(btn => (
             <button
                 key={btn.label}
@@ -197,7 +204,7 @@ const ActionButtons: React.FC<{ buttons: ActionButtonProps[]; onButtonClick: (ac
                     btn.style === 'primary' 
                     ? 'bg-green-500/80 text-gray-900 hover:bg-green-400 font-semibold' 
                     : 'bg-white/5 hover:bg-white/10 text-green-200'
-                } ${btn.isFullWidth ? 'col-span-2 justify-center' : ''}`}
+                } ${btn.isFullWidth ? 'col-span-1 sm:col-span-2 justify-center' : ''}`}
             >
                 {btn.emoji && <span className="text-lg">{btn.emoji}</span>}
                 <span>{btn.label}</span>
@@ -224,6 +231,7 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const initialModeRef = useRef(initialMode);
 
     const handleSafetyHalt = useCallback(() => {
         setMessages(prev => [...prev, {
@@ -278,7 +286,6 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
             const firstPrompt = prompts[0];
             setMessages([
                 { role: 'model', text: initialMessage || `Welcome back, ${userName}. Let's reflect on the ${firstPrompt.category}.` },
-                { role: 'model', text: `Here's the first thought (${1}/${prompts.length}).` },
                 { role: 'model', text: firstPrompt.text }
             ]);
             setConversationState({
@@ -317,7 +324,7 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
         title?: string,
         analysisResult?: FullAnalysisResult | null
     ) => {
-        if (!conversationState || !onSave || !conversationState.currentPrompt) return;
+        if (!conversationState || !onSave || !conversationState.currentPrompt || text.trim() === '') return;
         
         const analysisToUse = analysisResult || await performFullEntryAnalysis(text);
 
@@ -339,6 +346,31 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
 
     const handleJournalSubmit = useCallback(async (text: string) => {
         if (text.trim() === '' || !conversationState) return;
+        
+        const showSuggestions = initialModeRef.current !== 'start_reflecting' && initialModeRef.current !== 'listening';
+
+        const exitKeywords = ["i'm done", "that's enough", "i am done", "that is enough"];
+        const lowerCaseText = text.toLowerCase();
+        const hasPause = /\bpause\b/.test(lowerCaseText);
+
+        if (exitKeywords.some(k => lowerCaseText.includes(k)) || hasPause) {
+            setIsLoading(true);
+            setJournalInput('');
+            setMessages(prev => [...prev, { role: 'user', text }]);
+            
+            if (text.trim().length > 10) { 
+               await handleSaveEntry(text, false);
+            }
+        
+            setMessages(prev => [
+                ...prev, 
+                { role: 'model', text: "Of course. Thank you for sharing this space with me. Your thoughts are safe here." },
+            ]);
+            setConversationState(prev => ({ ...prev!, step: 'CLOSING' }));
+            setTimeout(() => onSessionComplete(lastSubmittedEntryText || text, { showSuggestions }), 3000);
+            return;
+        }
+
 
         if (conversationState.step === 'LISTENING') {
             setIsLoading(true);
@@ -434,64 +466,33 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
                 setIsLoading(false);
                 return;
             }
-
-            if (analysisResult.wantsToJustBeHeard) {
-                setLastSubmittedEntryText(text);
-                setLastAnalysisResult(analysisResult);
-                
-                setMessages(prev => [
-                    ...prev,
-                    { role: 'model', text: getRandomItem(LISTENING_MODE_VALIDATION) },
-                ]);
-                setConversationState(prev => ({ ...prev!, step: 'LISTENING' }));
-                setIsLoading(false);
-                return;
-            }
             
+            await handleSaveEntry(text, false, undefined, analysisResult);
             setLastSubmittedEntryText(text);
             setLastAnalysisResult(analysisResult);
             
-            let communityContextMessage = '';
-            const currentCategory = conversationState?.currentPrompt?.category;
-            if (currentCategory) {
-                let clusterName: string | undefined;
-                for (const [name, config] of Object.entries(CLUSTER_CONFIG)) {
-                    if (config.pack.includes(currentCategory)) {
-                        clusterName = name;
-                        break;
-                    }
-                }
+            const inQueue = promptQueue.length > 0;
+            const promptsInSession = 5;
+            const isFinalPromptOfSession = currentPromptIndex >= promptsInSession - 1;
 
-                if (clusterName) {
-                    const relatedEntriesCount = entries.filter(e => {
-                        let entryCluster: string | undefined;
-                        for (const [name, config] of Object.entries(CLUSTER_CONFIG)) {
-                            if (config.pack.includes(e.promptCategory)) {
-                                entryCluster = name;
-                                break;
-                            }
-                        }
-                        return entryCluster === clusterName && e.isShared;
-                    }).length;
-                    
-                    if (relatedEntriesCount > 5) {
-                        const roundedCount = Math.max(10, Math.round(relatedEntriesCount / 10) * 10);
-                        communityContextMessage = `You're not alone — about ${roundedCount} others have reflected on this feeling recently.`;
-                    }
-                }
-            }
+            if (inQueue && !isFinalPromptOfSession) {
+                const nextIndex = currentPromptIndex + 1;
+                setCurrentPromptIndex(nextIndex);
+                const nextPrompt = promptQueue[nextIndex];
 
-            const validationMessage = getRandomItem(POST_REFLECTION_VALIDATION);
-            const followUpMessage = "What would you like to do next?";
-            
-            const newMessages: Message[] = [{ role: 'model', text: validationMessage }];
-            if (communityContextMessage) {
-                newMessages.push({ role: 'model', text: communityContextMessage });
+                setMessages(prev => [
+                    ...prev,
+                    { role: 'model', text: getRandomItem(GENTLE_TRANSITIONS) },
+                ]);
+                setConversationState(prev => ({ ...prev!, step: 'WRITING', currentPrompt: nextPrompt }));
+            } else {
+                setMessages(prev => [
+                    ...prev,
+                    { role: 'model', text: getRandomItem(POST_REFLECTION_VALIDATION) },
+                    { role: 'model', text: "What would you like to do next?" }
+                ]);
+                setConversationState(prev => prev ? { ...prev, step: 'POST_REFLECTION' } : null);
             }
-            newMessages.push({ role: 'model', text: followUpMessage });
-            
-            setMessages(prev => [...prev, ...newMessages]);
-            setConversationState(prev => prev ? { ...prev, step: 'POST_REFLECTION' } : null);
 
         } catch (error) {
             console.error("Error during analysis:", error);
@@ -503,13 +504,13 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
         } finally {
             setIsLoading(false);
         }
-    }, [conversationState, handleSafetyHalt, entries, turnCount, messages]);
+    }, [conversationState, handleSafetyHalt, entries, turnCount, messages, handleSaveEntry, onSessionComplete, lastSubmittedEntryText, promptQueue, currentPromptIndex]);
     
     const handleShareModalConfirm = useCallback(async (title?: string) => {
         await handleSaveEntry(lastSubmittedEntryText, true, title, lastAnalysisResult);
         setMessages(prev => [
             ...prev,
-            { role: 'user', text: "Share with the Tribe" },
+            { role: 'user', text: "Share with Tribe" },
             { role: 'model', text: "Your reflection will join others in the Sonder Tribe, anonymously. Thank you for adding your voice." }
         ]);
         setConversationState(prev => ({ ...prev!, step: 'CLOSING' }));
@@ -518,6 +519,7 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
 
     const handleButtonClick = useCallback(async (action: string, payload?: any) => {
         if (!conversationState) return;
+        const showSuggestions = initialModeRef.current !== 'start_reflecting' && initialModeRef.current !== 'listening';
         
         switch (action) {
             case 'select_prompt': {
@@ -551,49 +553,38 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
                     "Okay, we’ll start there. Take your time."
                 ];
                 
-                if (packTitle === 'freeform') {
-                    const freeformPrompt = { id: "freeform-start", text: "What’s been on your mind lately?", category: "Freeform" };
-                    setPromptQueue([]);
+                if (packTitle === 'random') {
+                    const allPrompts = PROMPT_PACKS.flatMap(p => p.prompts.map(promptText => ({
+                        id: `random-${Math.random()}`,
+                        text: promptText,
+                        category: p.title
+                    })));
+                    const randomPrompts = [...allPrompts].sort(() => 0.5 - Math.random()).slice(0, 5);
+                    setPromptQueue(randomPrompts);
                     setCurrentPromptIndex(0);
-                    setMessages(prev => [...prev, { role: 'model', text: getRandomItem(confirmationMessages) }]);
-                    setConversationState(prev => ({...prev!, step: 'WRITING', currentPrompt: freeformPrompt }));
-
+                    setMessages(prev => [...prev, { role: 'user', text: "I'll try some random reflections" }, { role: 'model', text: getRandomItem(confirmationMessages) }]);
+                    setConversationState(prev => ({...prev!, step: 'WRITING', currentPrompt: randomPrompts[0] }));
                 } else {
                     const selectedPack = PROMPT_PACKS.find(p => p.title === packTitle);
                     if (selectedPack) {
-                        const packPrompts = selectedPack.prompts.map((promptText, index) => ({
+                        const packPrompts = selectedPack.prompts.slice(0, 5).map((promptText, index) => ({
                             id: `${selectedPack.title.replace(/\s+/g, '-')}-${index}`,
                             text: promptText,
                             category: selectedPack.title
                         }));
                         setPromptQueue(packPrompts);
                         setCurrentPromptIndex(0);
-                        setMessages(prev => [...prev, { role: 'model', text: getRandomItem(confirmationMessages) }]);
+                        setMessages(prev => [...prev, { role: 'user', text: `I'd like to try the ${selectedPack.shortTitle} pack` }, { role: 'model', text: getRandomItem(confirmationMessages) }]);
                         setConversationState(prev => ({ ...prev!, step: 'WRITING', currentPrompt: packPrompts[0] }));
                     }
                 }
                 break;
             }
 
-            case 'next_prompt': {
-                await handleSaveEntry(lastSubmittedEntryText, false, undefined, lastAnalysisResult);
-                const nextIndex = currentPromptIndex + 1;
-                setCurrentPromptIndex(nextIndex);
-                const nextPrompt = promptQueue[nextIndex];
-                setMessages(prev => [
-                    ...prev,
-                    { role: 'user', text: "Next Prompt" },
-                    { role: 'model', text: `Here's the next thought. (${nextIndex + 1}/${promptQueue.length})` }
-                ]);
-                setConversationState(prev => ({ ...prev!, step: 'WRITING', currentPrompt: nextPrompt }));
-                break;
-            }
-
             case 'keep_reflecting': {
                 await handleSaveEntry(lastSubmittedEntryText, false, undefined, lastAnalysisResult);
-                const freeformPrompt = { id: "keep-reflecting-freeform", text: "What else is on your mind?", category: "Freeform" };
-                setMessages(prev => [ ...prev, { role: 'user', text: "Keep reflecting" }, { role: 'model', text: getRandomItem(GENTLE_ENCOURAGEMENT) } ]);
-                setConversationState(prev => ({ ...prev!, step: 'WRITING', currentPrompt: freeformPrompt }));
+                setMessages(prev => [ ...prev, { role: 'user', text: "Continue Reflecting" }, { role: 'model', text: "Of course. Where would you like to continue your reflection?" } ]);
+                setConversationState(prev => ({ ...prev!, step: 'PACK_SELECTION' }));
                 break;
             }
             
@@ -605,7 +596,7 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
                     { role: 'model', text: "That’s okay. This space is yours to return to whenever you're ready." },
                 ]);
                 setConversationState(prev => ({ ...prev!, step: 'CLOSING' }));
-                setTimeout(() => onSessionComplete(lastSubmittedEntryText), 3000);
+                setTimeout(() => onSessionComplete(lastSubmittedEntryText, { showSuggestions }), 3000);
                 break;
             }
             
@@ -618,17 +609,17 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
                 await handleSaveEntry(sessionText, false);
                 setMessages(prev => [...prev, {role: 'model', text: "Your reflection has been saved."}]);
                 setConversationState(prev => ({ ...prev!, step: 'CLOSING' }));
-                setTimeout(() => onSessionComplete(sessionText), 3000);
+                setTimeout(() => onSessionComplete(sessionText, { showSuggestions }), 3000);
                 break;
             }
 
             case 'discard_listening_session': {
                 const sessionText = messages.filter(m => m.role === 'user').map(m => m.text).join('\n\n');
-                onSessionComplete(sessionText);
+                onSessionComplete(sessionText, { showSuggestions });
                 break;
             }
         }
-    }, [conversationState, onSessionComplete, handleSaveEntry, lastSubmittedEntryText, onNavigate, lastAnalysisResult, currentPromptIndex, promptQueue, messages]);
+    }, [conversationState, onSessionComplete, handleSaveEntry, lastSubmittedEntryText, onNavigate, lastAnalysisResult, messages]);
     
     const { isActive, startConversation, stopConversation } = useLiveConversation({
         onTurnComplete: (userInput) => {
@@ -644,23 +635,23 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
         onError: setError,
     });
     
-    const postReflectionButtons = useMemo<ActionButtonProps[]>(() => {
-        const inQueue = promptQueue.length > 0;
-        const isLastPromptInQueue = currentPromptIndex >= promptQueue.length - 1;
-
-        let reflectAction: ActionButtonProps;
-        if (inQueue && !isLastPromptInQueue) {
-            reflectAction = { label: 'Next Prompt', action: 'next_prompt', style: 'primary', emoji: '➡️' };
-        } else {
-            reflectAction = { label: 'Keep Reflecting', action: 'keep_reflecting', style: 'primary', emoji: '✨' };
+    const handlePause = useCallback(async () => {
+        const showSuggestions = initialModeRef.current !== 'start_reflecting' && initialModeRef.current !== 'listening';
+        setMessages(prev => [...prev, { role: 'model', text: "Of course. Your reflection is safe here." }]);
+        setConversationState(prev => ({...prev!, step: 'CLOSING'}));
+        if (journalInput.trim().length > 5) {
+            await handleSaveEntry(journalInput, false);
         }
+        setTimeout(() => onSessionComplete(lastSubmittedEntryText || journalInput, { showSuggestions }), 2500);
+    }, [journalInput, handleSaveEntry, onSessionComplete, lastSubmittedEntryText]);
 
+    const postReflectionButtons = useMemo<ActionButtonProps[]>(() => {
         return [
-            reflectAction,
+            { label: 'Continue Reflecting', action: 'keep_reflecting', style: 'primary', emoji: '✨' },
             { label: 'Pause for Now', action: 'pause_for_now', style: 'secondary', emoji: '🌙' },
-            { label: 'Share with Tribe', action: 'share_anonymously', style: 'secondary', emoji: '🤍' },
+            { label: 'Share with Tribe', action: 'share_anonymously', style: 'secondary', isFullWidth: true, emoji: '🤍' },
         ];
-    }, [promptQueue.length, currentPromptIndex]);
+    }, []);
 
     const postListeningButtons = useMemo<ActionButtonProps[]>(() => [
         { label: 'Save Reflection', action: 'save_listening_session', style: 'primary', emoji: '📝' },
@@ -686,7 +677,7 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
             payload: { packTitle: pack.title },
             style: 'secondary' as 'secondary',
         }));
-        buttons.push({ label: 'Write Freely', emoji: '✨', action: 'select_pack', payload: { packTitle: 'freeform' }, style: 'secondary', isFullWidth: true });
+        buttons.push({ label: 'Random Reflections', emoji: '🎲', action: 'select_pack', payload: { packTitle: 'random' }, style: 'secondary', isFullWidth: true });
         return buttons;
     }, []);
 
@@ -733,24 +724,24 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
     };
     
     const showInputBar = conversationState && ['WRITING', 'START_REFLECTING', 'LISTENING'].includes(conversationState.step);
-    const isListeningMode = conversationState?.step === 'LISTENING';
+    const isPausable = conversationState?.step === 'WRITING' || conversationState?.step === 'LISTENING';
 
     return (
         <div className="h-full flex flex-col animate-fade-in relative">
-            <header className="flex justify-between items-center mb-4 flex-shrink-0">
-                <div>
-                    <h1 className="text-2xl font-bold text-green-200">SonderBot</h1>
+            <header className="w-full max-w-3xl mx-auto flex flex-col items-start gap-2 sm:flex-row sm:justify-between sm:items-center mb-4 flex-shrink-0">
+                <div className="mb-4 sm:mb-0">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-green-200">SonderBot</h1>
                     <p className="text-gray-400 text-sm">Your gentle, empathetic companion.</p>
                 </div>
-                <button onClick={ isListeningMode ? () => setConversationState(prev => ({...prev!, step: 'POST_LISTENING'})) : onExit} className="px-4 py-2 text-sm bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                    {isListeningMode ? 'End Chat' : 'Exit'}
+                <button onClick={isPausable ? handlePause : onExit} className="px-4 py-2 text-sm bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                    {isPausable ? 'Pause Session' : 'Exit'}
                 </button>
             </header>
 
-            <div className="flex-grow overflow-y-auto pr-2 space-y-4 mb-4">
+            <div className="w-full max-w-3xl mx-auto flex-grow overflow-y-auto pr-2 space-y-4 mb-4">
                 {messages.map((msg, index) => (
                     <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl ${msg.role === 'user' ? 'bg-green-500/80 text-gray-900' : 'bg-[#222a26]'}`}>
+                        <div className={`max-w-md md:max-w-lg lg:max-w-2xl px-4 py-2 rounded-2xl ${msg.role === 'user' ? 'bg-green-500/80 text-gray-900' : 'bg-[#222a26]'}`}>
                            <p className="whitespace-pre-wrap">{msg.text}</p>
                         </div>
                     </div>
@@ -761,37 +752,39 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
             </div>
 
             <div className="flex-shrink-0 mt-auto pt-2">
-                {renderActionButtons()}
-                {showInputBar && (
-                     <div className="relative">
-                        {conversationState.step === 'LISTENING' && !isLoading && <ListeningOverlay message={isListeningMode ? "I'm here." : getRandomItem(LISTENING_MODE_VALIDATION)} />}
-                        <form
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                                if (journalInput.trim() !== '') handleJournalSubmit(journalInput);
-                            }}
-                            className="flex items-end gap-2 p-2 bg-[#222a26] rounded-lg border border-white/10"
-                        >
-                            <button type="button" onClick={isActive ? stopConversation : startConversation} disabled={isLoading} className={`p-3 rounded-full font-semibold transition-colors flex-shrink-0 ${isActive ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-500/80 text-white hover:bg-blue-400 disabled:bg-gray-500'}`} aria-label={isActive ? "Stop recording" : "Start recording"}>
-                                <MicIcon className="w-5 h-5" />
-                            </button>
-                            <textarea
-                                ref={textareaRef}
-                                value={journalInput}
-                                onChange={(e) => setJournalInput(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                onInput={handleInput}
-                                placeholder={liveUserTranscript ? `Listening... "${liveUserTranscript}"` : "Write what comes to mind..."}
-                                className="w-full bg-transparent rounded-lg text-base leading-relaxed text-gray-200 focus:outline-none resize-none max-h-40"
-                                disabled={isLoading || isActive}
-                                rows={1}
-                            />
-                            <button type="submit" disabled={isLoading || journalInput.trim() === '' || isActive} className="p-3 bg-green-500 text-gray-900 rounded-lg font-semibold hover:bg-green-400 disabled:bg-gray-600/50 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors flex-shrink-0">
-                                <SendIcon className="w-5 h-5"/>
-                            </button>
-                        </form>
-                    </div>
-                )}
+                <div className="max-w-3xl mx-auto w-full">
+                    {renderActionButtons()}
+                    {showInputBar && (
+                        <div className="relative">
+                            {conversationState.step === 'LISTENING' && !isLoading && <ListeningOverlay message={"I'm here."} />}
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    if (journalInput.trim() !== '') handleJournalSubmit(journalInput);
+                                }}
+                                className="flex items-end gap-2 p-2 bg-[#222a26] rounded-lg border border-white/10"
+                            >
+                                <button type="button" onClick={isActive ? stopConversation : startConversation} disabled={isLoading} className={`p-3 rounded-full font-semibold transition-colors flex-shrink-0 ${isActive ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-500/80 text-white hover:bg-blue-400 disabled:bg-gray-500'}`} aria-label={isActive ? "Stop recording" : "Start recording"}>
+                                    <MicIcon className="w-5 h-5" />
+                                </button>
+                                <textarea
+                                    ref={textareaRef}
+                                    value={journalInput}
+                                    onChange={(e) => setJournalInput(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    onInput={handleInput}
+                                    placeholder={liveUserTranscript ? `Listening... "${liveUserTranscript}"` : "Write what comes to mind..."}
+                                    className="w-full bg-transparent rounded-lg text-base leading-relaxed text-gray-200 focus:outline-none resize-none max-h-40"
+                                    disabled={isLoading || isActive}
+                                    rows={1}
+                                />
+                                <button type="submit" disabled={isLoading || journalInput.trim() === '' || isActive} className="p-3 bg-green-500 text-gray-900 rounded-lg font-semibold hover:bg-green-400 disabled:bg-gray-600/50 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors flex-shrink-0">
+                                    <SendIcon className="w-5 h-5"/>
+                                </button>
+                            </form>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {conversationState?.step === 'SHARE_MODAL' && (

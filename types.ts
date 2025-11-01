@@ -16,3 +16,12 @@ export interface JournalEntry {
   timestamp: number;
   highlightedPhrases?: string[];
 }
+
+export interface User {
+  name: string;
+  email: string;
+  // This is not secure and is for demonstration purposes only.
+  // In a real application, never store plain text passwords.
+  password_DO_NOT_USE_IN_PROD: string;
+  onboardingComplete: boolean;
+}

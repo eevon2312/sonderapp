@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useLiveConversation } from '../hooks/useLiveConversation';
 import { performFullEntryAnalysis, FullAnalysisResult } from '../services/geminiService';
@@ -165,7 +166,7 @@ const VoiceMemoDemo: React.FC<VoiceMemoDemoProps> = ({ onExit, onSave }) => {
         <div className="text-center">
             <h2 className="text-2xl font-lora text-green-200 mb-2">Voice Journal</h2>
             <p className="text-gray-400 min-h-[4rem]">
-                {isActive ? liveTranscript || "Listening..." : "Record your thoughts out loud. We'll transcribe and reflect with you."}
+                {isActive ? liveTranscript || "Listening..." : "A quiet space to dump your thoughts out loud. Just speak freely."}
             </p>
         </div>
     );
@@ -173,6 +174,9 @@ const VoiceMemoDemo: React.FC<VoiceMemoDemoProps> = ({ onExit, onSave }) => {
 
   return (
     <div className="h-full flex flex-col items-center justify-center animate-fade-in text-center -m-6 bg-[#2a332d]">
+       <header className="absolute top-0 left-0 right-0 flex justify-end p-4 sm:p-6">
+            <button onClick={onExit} className="px-4 py-2 text-sm bg-white/10 rounded-lg hover:bg-white/20 transition-colors">Exit</button>
+        </header>
         <div className="flex-grow flex flex-col items-center justify-center w-full max-w-lg p-6">
           {renderContent()}
         </div>
@@ -194,10 +198,10 @@ const VoiceMemoDemo: React.FC<VoiceMemoDemoProps> = ({ onExit, onSave }) => {
                     onClick={handleToggleRecording}
                     disabled={isProcessing}
                     aria-label={isActive ? "Stop recording" : "Start recording"}
-                    className={`w-24 h-24 rounded-full flex items-center justify-center text-white transition-all duration-300 transform hover:scale-105 disabled:opacity-50
+                    className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center text-white transition-all duration-300 transform hover:scale-105 disabled:opacity-50
                     ${isActive ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`}
                 >
-                    {isActive ? <StopIcon className="w-10 h-10" /> : <MicIcon className="w-10 h-10" />}
+                    {isActive ? <StopIcon className="w-8 h-8 sm:w-10 sm:h-10" /> : <MicIcon className="w-8 h-8 sm:w-10 sm:h-10" />}
                 </button>
             )}
         </div>

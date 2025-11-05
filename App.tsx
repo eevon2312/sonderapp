@@ -9,13 +9,13 @@ import ChatView from './components/ChatView';
 import SonderBotButton from './components/SonderBotButton';
 import Login from './components/Login';
 import SignUp from './components/SignUp';
+import Garden from './components/Garden';
 import { ALL_PROMPTS, PROMPT_PACKS } from './constants';
 import { useJournal } from './hooks/useJournal';
 import { useAuth } from './hooks/useAuth';
 import { performFullEntryAnalysis, suggestPromptPacks } from './services/geminiService';
-import VoiceMemoDemo from './components/VoiceMemoDemo';
 
-type View = 'onboarding' | 'home' | 'tribe' | 'entries' | 'prompt_library' | 'session_complete' | 'chat' | 'voice_demo' | 'auth';
+type View = 'onboarding' | 'home' | 'tribe' | 'entries' | 'prompt_library' | 'session_complete' | 'chat' | 'garden' | 'auth';
 type AuthView = 'login' | 'signup';
 type ChatMode = 'chat' | 'listening' | 'start_reflecting';
 
@@ -106,10 +106,6 @@ const App: React.FC = () => {
     setView('chat');
   };
 
-  const handleStartVoiceMemo = () => {
-    setView('voice_demo');
-  };
-
 
   const handleSaveChatEntry = async (entryData: Omit<JournalEntry, 'id' | 'timestamp'>) => {
     try {
@@ -180,8 +176,8 @@ const App: React.FC = () => {
         return <PromptLibrary onNavigate={setView} onSelectPrompt={handleStartJournaling} onSelectPack={handleStartJournaling} />;
       case 'session_complete':
         return <SessionComplete onNavigate={setView} onStartNewSession={handleStartJournaling} suggestedPacks={suggestedPacks} isLoading={isLoadingSuggestions} />;
-      case 'voice_demo':
-        return <VoiceMemoDemo onExit={() => setView('home')} onSave={addEntry} />;
+      case 'garden':
+        return <Garden entries={entries} onNavigate={setView} />;
       case 'chat':
         return (
             <ChatView 
@@ -198,29 +194,32 @@ const App: React.FC = () => {
         );
       case 'home':
       default:
-        return <Home onNavigate={setView} onStartJournaling={handleStartJournaling} onStartListening={handleStartListening} onStartReflecting={handleStartReflecting} onStartVoiceMemo={handleStartVoiceMemo} todayPrompt={todayPrompt} userName={user.name} />;
+        return <Home onNavigate={setView} onStartJournaling={handleStartJournaling} onStartListening={handleStartListening} onStartReflecting={handleStartReflecting} todayPrompt={todayPrompt} userName={user.name} />;
     }
   };
 
-  const showSonderBotButton = user && user.onboardingComplete && view !== 'home' && view !== 'chat' && view !== 'onboarding' && view !== 'voice_demo';
+  const showSonderBotButton = user && user.onboardingComplete && !['home', 'chat', 'onboarding'].includes(view);
+  const isHomeView = view === 'home';
 
   return (
-    <div className="bg-[#1a201d] min-h-screen w-full flex items-center justify-center sm:p-4 text-[#e0e0e0] font-sans antialiased">
-      <div className="w-full h-screen sm:h-[90vh] sm:max-h-[700px] sm:max-w-4xl bg-[#2a332d] sm:rounded-2xl shadow-2xl shadow-black/30 flex flex-col overflow-hidden">
-        {/* Window Header */}
-        <header className="grid grid-cols-3 items-center p-3 border-b border-white/10 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleExit}
-              className="w-4 h-4 sm:w-3 sm:h-3 bg-red-500 rounded-full transition-colors hover:bg-red-600 focus:outline-none"
-              aria-label="Close view and return to home"
-            ></button>
-            <span className="w-3 h-3 bg-yellow-500 rounded-full hidden sm:block"></span>
-            <span className="w-3 h-3 bg-green-500 rounded-full hidden sm:block"></span>
-          </div>
-          <div className="text-sm text-gray-400 text-center">Sonder</div>
-          <div /> {/* Spacer for grid */}
-        </header>
+    <div className="min-h-screen w-full flex items-center justify-center sm:p-4 font-sans antialiased bg-[#1a201d] text-[#e0e0e0]">
+      <div className="w-full h-screen sm:h-[90vh] sm:max-h-[800px] sm:max-w-4xl sm:rounded-2xl shadow-2xl shadow-black/30 flex flex-col overflow-hidden bg-[#2a332d]">
+        {/* Window Header - Conditionally rendered or styled */}
+        {!isHomeView && (
+            <header className="grid grid-cols-3 items-center p-3 border-b border-white/10 flex-shrink-0">
+            <div className="flex items-center gap-2">
+                <button
+                onClick={handleExit}
+                className="w-4 h-4 sm:w-3 sm:h-3 bg-red-500 rounded-full transition-colors hover:bg-red-600 focus:outline-none"
+                aria-label="Close view and return to home"
+                ></button>
+                <span className="w-3 h-3 bg-yellow-500 rounded-full hidden sm:block"></span>
+                <span className="w-3 h-3 bg-green-500 rounded-full hidden sm:block"></span>
+            </div>
+            <div className="text-sm text-gray-400 text-center">Sonder</div>
+            <div /> {/* Spacer for grid */}
+            </header>
+        )}
 
         {/* Main Content */}
         <main className="flex-grow p-4 sm:p-6 overflow-y-auto relative">

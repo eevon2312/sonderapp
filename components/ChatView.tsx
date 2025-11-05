@@ -37,12 +37,26 @@ const GENTLE_TRANSITIONS = [
     "That makes sense. Let's explore this idea next.",
 ];
 
-const POST_REFLECTION_VALIDATION = [
-    "That must feel like a lot to carry.",
-    "I see what you mean.",
-    "You make sense.",
-    "Take your time — you’re doing beautifully.",
+const GARDEN_ACKNOWLEDGEMENTS = [
+    "That was really beautiful. Another tulip just bloomed in your garden.",
+    "You just planted a new tulip — a reminder of your courage to show up today.",
+    "Each thought you share adds life to your garden.",
+    "That’s a tender and brave reflection. A tulip has bloomed in your garden — it holds your compassion.",
+    "You’ve nurtured something beautiful today.",
 ];
+
+const GARDEN_PAUSE_MESSAGES = [
+    "Take a breath and look at your garden — it’s blooming quietly with everything you’ve shared.",
+];
+
+const GARDEN_SESSION_END_MESSAGES = [
+    "Thank you for reflecting today. Your garden has grown a little brighter.",
+];
+
+const GARDEN_EXPLANATION = "Your digital garden grows each time you reflect here. Every tulip represents a moment of honesty or care you’ve given yourself.";
+
+const GARDEN_COUNT_RESPONSE = "I don’t count them — but I can tell you it’s growing beautifully, one honest moment at a time.";
+
 
 const LISTENING_MODE_VALIDATION = [
     "I hear you. You don’t have to explain — this space is here for you.",
@@ -346,11 +360,36 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
 
     const handleJournalSubmit = useCallback(async (text: string) => {
         if (text.trim() === '' || !conversationState) return;
+
+        const lowerCaseText = text.toLowerCase();
+        const isGardenQuestion = /\b(garden|tulip)\b/.test(lowerCaseText) && /\b(what|why|explain)\b/.test(lowerCaseText);
+        const isGardenCountQuestion = /\b(how many)\b/.test(lowerCaseText) && /\b(tulip|flower)\b/.test(lowerCaseText);
+
+        if (isGardenCountQuestion) {
+            setIsLoading(true);
+            setJournalInput('');
+            setMessages(prev => [...prev, { role: 'user', text }]);
+            setTimeout(() => {
+                setMessages(prev => [...prev, { role: 'model', text: GARDEN_COUNT_RESPONSE }]);
+                setIsLoading(false);
+            }, 800);
+            return;
+        }
+
+        if (isGardenQuestion) {
+            setIsLoading(true);
+            setJournalInput('');
+            setMessages(prev => [...prev, { role: 'user', text }]);
+            setTimeout(() => {
+                setMessages(prev => [...prev, { role: 'model', text: GARDEN_EXPLANATION }]);
+                setIsLoading(false);
+            }, 800);
+            return;
+        }
         
         const showSuggestions = initialModeRef.current !== 'start_reflecting' && initialModeRef.current !== 'listening';
 
         const exitKeywords = ["i'm done", "that's enough", "i am done", "that is enough"];
-        const lowerCaseText = text.toLowerCase();
         const hasPause = /\bpause\b/.test(lowerCaseText);
 
         if (exitKeywords.some(k => lowerCaseText.includes(k)) || hasPause) {
@@ -364,7 +403,7 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
         
             setMessages(prev => [
                 ...prev, 
-                { role: 'model', text: "Of course. Thank you for sharing this space with me. Your thoughts are safe here." },
+                { role: 'model', text: getRandomItem(GARDEN_SESSION_END_MESSAGES) },
             ]);
             setConversationState(prev => ({ ...prev!, step: 'CLOSING' }));
             setTimeout(() => onSessionComplete(lastSubmittedEntryText || text, { showSuggestions }), 3000);
@@ -482,13 +521,14 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
 
                 setMessages(prev => [
                     ...prev,
+                    { role: 'model', text: getRandomItem(GARDEN_ACKNOWLEDGEMENTS) },
                     { role: 'model', text: getRandomItem(GENTLE_TRANSITIONS) },
                 ]);
                 setConversationState(prev => ({ ...prev!, step: 'WRITING', currentPrompt: nextPrompt }));
             } else {
                 setMessages(prev => [
                     ...prev,
-                    { role: 'model', text: getRandomItem(POST_REFLECTION_VALIDATION) },
+                    { role: 'model', text: getRandomItem(GARDEN_ACKNOWLEDGEMENTS) },
                     { role: 'model', text: "What would you like to do next?" }
                 ]);
                 setConversationState(prev => prev ? { ...prev, step: 'POST_REFLECTION' } : null);
@@ -511,7 +551,8 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
         setMessages(prev => [
             ...prev,
             { role: 'user', text: "Share with Tribe" },
-            { role: 'model', text: "Your reflection will join others in the Sonder Tribe, anonymously. Thank you for adding your voice." }
+            { role: 'model', text: "Your reflection will join others in the Sonder Tribe, anonymously. Thank you for adding your voice." },
+            { role: 'model', text: getRandomItem(GARDEN_SESSION_END_MESSAGES) }
         ]);
         setConversationState(prev => ({ ...prev!, step: 'CLOSING' }));
         setTimeout(() => onSessionComplete(lastSubmittedEntryText), 4000);
@@ -593,7 +634,7 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
                 setMessages(prev => [
                     ...prev, 
                     { role: 'user', text: "Pause for now" },
-                    { role: 'model', text: "That’s okay. This space is yours to return to whenever you're ready." },
+                    { role: 'model', text: getRandomItem(GARDEN_SESSION_END_MESSAGES) },
                 ]);
                 setConversationState(prev => ({ ...prev!, step: 'CLOSING' }));
                 setTimeout(() => onSessionComplete(lastSubmittedEntryText, { showSuggestions }), 3000);
@@ -637,13 +678,16 @@ const ChatView: React.FC<ChatViewProps> = ({ userName, onExit, entries, prompts,
     
     const handlePause = useCallback(async () => {
         const showSuggestions = initialModeRef.current !== 'start_reflecting' && initialModeRef.current !== 'listening';
-        setMessages(prev => [...prev, { role: 'model', text: "Of course. Your reflection is safe here." }]);
+        const message = promptQueue.length > 0 && currentPromptIndex > 0 
+            ? getRandomItem(GARDEN_PAUSE_MESSAGES) 
+            : getRandomItem(GARDEN_SESSION_END_MESSAGES);
+        setMessages(prev => [...prev, { role: 'model', text: message }]);
         setConversationState(prev => ({...prev!, step: 'CLOSING'}));
         if (journalInput.trim().length > 5) {
             await handleSaveEntry(journalInput, false);
         }
         setTimeout(() => onSessionComplete(lastSubmittedEntryText || journalInput, { showSuggestions }), 2500);
-    }, [journalInput, handleSaveEntry, onSessionComplete, lastSubmittedEntryText]);
+    }, [journalInput, handleSaveEntry, onSessionComplete, lastSubmittedEntryText, promptQueue, currentPromptIndex]);
 
     const postReflectionButtons = useMemo<ActionButtonProps[]>(() => {
         return [

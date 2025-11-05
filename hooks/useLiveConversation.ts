@@ -14,13 +14,13 @@ interface UseLiveConversationProps {
   onError: (error: string) => void;
 }
 
-export const useLiveConversation = ({
-  onTurnComplete,
-  onModelTranscript,
-  onUserTranscript,
-  onError
-}: UseLiveConversationProps) => {
+export const useLiveConversation = (props: UseLiveConversationProps) => {
   const [isActive, setIsActive] = useState(false);
+  
+  const callbacksRef = useRef(props);
+  useEffect(() => {
+    callbacksRef.current = props;
+  }, [props]);
 
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
   const inputAudioContextRef = useRef<AudioContext | null>(null);
@@ -78,7 +78,7 @@ export const useLiveConversation = ({
     if (isActive) return;
 
     if (!ai) {
-      onError('Voice interaction is unavailable: API Key is not configured.');
+      callbacksRef.current.onError('Voice interaction is unavailable: API Key is not configured.');
       console.error("GoogleGenAI client not initialized. Check API_KEY.");
       return;
     }
@@ -123,18 +123,18 @@ export const useLiveConversation = ({
               if (message.serverContent?.inputTranscription) {
                   const text = message.serverContent.inputTranscription.text;
                   currentInputTranscriptionRef.current += text;
-                  onUserTranscript(currentInputTranscriptionRef.current, false);
+                  callbacksRef.current.onUserTranscript(currentInputTranscriptionRef.current, false);
               }
               if (message.serverContent?.outputTranscription) {
                   const text = message.serverContent.outputTranscription.text;
                   currentOutputTranscriptionRef.current += text;
-                  onModelTranscript(currentOutputTranscriptionRef.current, false);
+                  callbacksRef.current.onModelTranscript(currentOutputTranscriptionRef.current, false);
               }
 
               if (message.serverContent?.turnComplete) {
-                  onUserTranscript(currentInputTranscriptionRef.current, true);
-                  onModelTranscript(currentOutputTranscriptionRef.current, true);
-                  onTurnComplete(currentInputTranscriptionRef.current, currentOutputTranscriptionRef.current);
+                  callbacksRef.current.onUserTranscript(currentInputTranscriptionRef.current, true);
+                  callbacksRef.current.onModelTranscript(currentOutputTranscriptionRef.current, true);
+                  callbacksRef.current.onTurnComplete(currentInputTranscriptionRef.current, currentOutputTranscriptionRef.current);
                   currentInputTranscriptionRef.current = '';
                   currentOutputTranscriptionRef.current = '';
               }
@@ -158,13 +158,13 @@ export const useLiveConversation = ({
               }
             } catch (err) {
               console.error("Error processing live message:", err);
-              onError('An error occurred during the conversation.');
+              callbacksRef.current.onError('An error occurred during the conversation.');
               stopConversation();
             }
           },
           onerror: (e: ErrorEvent) => {
             console.error('Live conversation error:', e);
-            onError('A network error occurred. Please check your connection or API key.');
+            callbacksRef.current.onError('A network error occurred. Please check your connection or API key.');
             stopConversation();
           },
           onclose: () => {
@@ -175,10 +175,10 @@ export const useLiveConversation = ({
       sessionPromiseRef.current = sessionPromise;
     } catch (err) {
       console.error('Failed to start conversation', err);
-      onError('Could not access microphone. Please check permissions.');
+      callbacksRef.current.onError('Could not access microphone. Please check permissions.');
       stopConversation();
     }
-  }, [isActive, onTurnComplete, onUserTranscript, onModelTranscript, stopConversation, onError]);
+  }, [isActive, stopConversation]);
 
   useEffect(() => {
     return () => {
